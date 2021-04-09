@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
@@ -51,11 +52,12 @@ func listApplets(w http.ResponseWriter, r *http.Request) {
         log.Println("There was an error listing files: ")
     }
 
+    re := regexp.MustCompile("[.]star$")
 	for _, file := range files {
         if !file.IsDir(){
-            r, _ := regexp.MatchString("[.]star$", file.Name()) // Remove extensions?
-            if r {
-                applets = append(applets, file.Name())
+            match := re.MatchString(file.Name())
+            if match {
+                applets = append(applets, strings.Replace(file.Name(),".star", "",1))
             }
         }
 	}
@@ -68,7 +70,7 @@ func listApplets(w http.ResponseWriter, r *http.Request) {
 
 func addApplet(w http.ResponseWriter, r *http.Request) {
     file, handler, err := r.FormFile("file")
-    fileName := r.FormValue("filename")
+    fileName := handler.Filename
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
         log.Println("There was an error uploading the file: ", err)
@@ -76,26 +78,57 @@ func addApplet(w http.ResponseWriter, r *http.Request) {
     }
     defer file.Close()
 
-    f, err := os.OpenFile(fmt.Sprintf("%s/%s",APPLETS_PATH, handler.Filename), os.O_WRONLY|os.O_CREATE, 0666)
+    match, _ := regexp.MatchString("[.]star$", fileName)
+    if !match {
+        w.WriteHeader(http.StatusBadRequest)
+        fmt.Fprintf(w, "Wrong file extension. .star needed");
+        return;
+    }
+    f, err := os.OpenFile(fmt.Sprintf("%s/%s",APPLETS_PATH, fileName), os.O_WRONLY|os.O_CREATE, 0666)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
         log.Println("There was an error writing the file to disk: ", err)
+        return;
     }
     defer f.Close()
-    fmt.Fprintf(w, "File %s uploaded successfully", fileName)
-    _, _ = io.Copy(f, file)
+    _, err = io.Copy(f, file)
+    if err != nil {
+        fmt.Fprintf(w, "File %s uploaded successfully", fileName)
+    } else {
+        w.WriteHeader(http.StatusNotFound)
+        fmt.Fprint(w, "There was an error writing the file to disk: ", err)
+    }
 }
 
 
-// func deletePixlet(w http.ResponseWriter, r *http.Request) {
-//     fmt.Println("delete pixlets")
-// }
+func deleteApplet(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+    file := vars["name"]
+    if file != "" {
+        file = file + ".star"
+        filePath := fmt.Sprintf("%s/%s", APPLETS_PATH, file)
+        if _, err := os.Stat(filePath); err == nil {
+            err = os.Remove(filePath)
+            if err != nil{
+                w.WriteHeader(http.StatusNotFound)
+                fmt.Fprintf(w, "There was an error deleting the file: %s", err)
+                return
+            } else {
+                fmt.Fprintf(w, "File deleted")
+            }
+        } else if os.IsNotExist(err) {
+            w.WriteHeader(http.StatusNotFound)
+            fmt.Fprintf(w, "File not found")
+        }
+    }
+}
 
 func getApplet(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
     file := vars["name"]
     config := map[string]string{}
     if file != "" {
+        file = file + ".star"
         aplt, err := ioutil.ReadFile(fmt.Sprintf("%s/%s", APPLETS_PATH,file))
         if err == nil {
             w.Header().Set("Content-Type", "text/plain")
@@ -114,7 +147,7 @@ func getApplet(w http.ResponseWriter, r *http.Request) {
     
             gif, err := encode.ScreensFromRoots(roots).EncodeGIF()
             if err != nil {
-                fmt.Printf("Error rendering: %s\n", err)
+                log.Printf("Error rendering: %s\n", err)
                 return
             }
             gif64 := b64.StdEncoding.EncodeToString([]byte(gif))
@@ -131,7 +164,8 @@ func handleReqs() {
     myRouter.HandleFunc("/", homePage)
     myRouter.HandleFunc("/list", listApplets).Methods("GET")
     myRouter.HandleFunc("/applet", addApplet).Methods("POST")
-    // myRouter.HandleFunc("/applet/{name}", deleteApplet).Methods("DELETE")
+    myRouter.HandleFunc("/applet/{name}", deleteApplet).Methods("DELETE")
     myRouter.HandleFunc("/applet/{name}", getApplet).Methods("GET")
-    log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), myRouter))
+	fmt.Printf("listening on tcp/%d\n", apiPort)
+    log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", apiPort), myRouter))
 }
