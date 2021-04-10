@@ -84,7 +84,7 @@ func addApplet(w http.ResponseWriter, r *http.Request) {
         fmt.Fprintf(w, "Wrong file extension. .star needed");
         return;
     }
-    f, err := os.OpenFile(fmt.Sprintf("%s/%s",APPLETS_PATH, fileName), os.O_WRONLY|os.O_CREATE, 0666)
+    f, err := os.OpenFile(fmt.Sprintf("%s/%s",APPLETS_PATH, fileName), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
         log.Println("There was an error writing the file to disk: ", err)
@@ -93,10 +93,10 @@ func addApplet(w http.ResponseWriter, r *http.Request) {
     defer f.Close()
     _, err = io.Copy(f, file)
     if err != nil {
-        fmt.Fprintf(w, "File %s uploaded successfully", fileName)
-    } else {
         w.WriteHeader(http.StatusNotFound)
         fmt.Fprint(w, "There was an error writing the file to disk: ", err)
+    } else {
+        fmt.Fprintf(w, "File %s uploaded successfully", fileName)
     }
 }
 
