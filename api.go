@@ -144,7 +144,7 @@ func getApplet(w http.ResponseWriter, r *http.Request) {
                 log.Printf("Error running script: %s\n", err)
                 return
             }
-    
+
             gif, err := encode.ScreensFromRoots(roots).EncodeGIF()
             if err != nil {
                 log.Printf("Error rendering: %s\n", err)
