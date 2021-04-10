@@ -127,12 +127,14 @@ func getApplet(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
     file := vars["name"]
     config := map[string]string{}
+    for k, vals := range r.URL.Query() {
+        config[k] = vals[0]
+    }
     if file != "" {
         file = file + ".star"
         aplt, err := ioutil.ReadFile(fmt.Sprintf("%s/%s", APPLETS_PATH,file))
         if err == nil {
             w.Header().Set("Content-Type", "text/plain")
-            runtime.InitCache(runtime.NewInMemoryCache())
             applet := runtime.Applet{}
             err = applet.Load(file, aplt, nil)
             if err != nil {
@@ -167,5 +169,6 @@ func handleReqs() {
     myRouter.HandleFunc("/applet/{name}", deleteApplet).Methods("DELETE")
     myRouter.HandleFunc("/applet/{name}", getApplet).Methods("GET")
 	fmt.Printf("listening on tcp/%d\n", apiPort)
+    runtime.InitCache(runtime.NewInMemoryCache())
     log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", apiPort), myRouter))
 }
