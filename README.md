@@ -3,6 +3,10 @@
 [![Build & test](https://github.com/tidbyt/pixlet/workflows/Build%20&%20test/badge.svg)](https://github.com/tidbyt/pixlet/actions?query=workflow%3A%22Build+%26+test%22+branch%3Amain)
 [![GoDoc](https://godoc.org/github.com/tidbyt/pixlet/runtime?status.svg)](https://godoc.org/github.com/tidbyt/pixlet/runtime)
 
+## Note
+This fork of [Pixlet](https://github.com/tidbyt/pixlet/) includes an API option that can be used to manage applets and serve them in base64 format, and was developed to work with an ESP32 and RGB LED Matrix 64x32 panel using [panel-led-mqtt](https://github.com/cghdev/panel-led-mqtt)
+
+------
 Pixlet is an app runtime and UX toolkit for highly-constrained displays.
 We use Pixlet to develop applets for [Tidbyt](https://tidbyt.com/), which has
 a 64x32 RGB LED matrix display:

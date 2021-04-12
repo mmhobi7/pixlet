@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Pixlet Preview</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+  <script src="/static/api.js"></script>
+  <style type="text/css">
+    img {
+        image-rendering: pixelated;
+        image-rendering: -moz-crisp-edges;
+        image-rendering: crisp-edges;
+        width: 100%;
+    }
+</style>
+</head>
+<body>
+
+<div class="text-center" style="background-color: #C3C2C2">
+  <img style="width:30%" src="data:image/gif;base64,R0lGODlhQAAgAAAAACH5BAAFAAAALAAAAABAACAAgMPCwgAAAAJ68DF1uf1hlJNWe3HWm3f/wVAcyZIM0AMNALZ91dWQTdeFbXhW7jLfZ79gr3dKqWJAJdKkY+aIvKazlYLKVrfilNv1LmhhLBA7pnagu6hOiBOlX2Gl7dj2iNvCPA20ZhWPyBCy3gbVxGL+zLa+Gh0fISMlJykrLS+9CgAAOw==" />
+</div>
+  
+<div class="container">
+  <div class="row">
+    <div class="col-sm-4">
+      <h3>Available applets:</h3>
+      <div id="applets_list">
+        <table id="applets_table">
+          <tbody>
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="col-sm-8">
+      <div style="border: solid 1px white;padding-top:30px">
+        <span id='applet_preview'>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

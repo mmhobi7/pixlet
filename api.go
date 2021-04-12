@@ -42,7 +42,13 @@ func api(cmd *cobra.Command, args []string) {
 }
 
 func homePage(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprintf(w, "Hello!")
+    html, err := os.ReadFile("web/preview.html")
+    if err != nil {
+        log.Printf("There was an error opening preview.html: %s", err)
+        w.WriteHeader(http.StatusInternalServerError)
+        return
+    }
+    fmt.Fprint(w, string(html))
 }
 
 func listApplets(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +174,7 @@ func handleReqs() {
     myRouter.HandleFunc("/applet", addApplet).Methods("POST")
     myRouter.HandleFunc("/applet/{name}", deleteApplet).Methods("DELETE")
     myRouter.HandleFunc("/applet/{name}", getApplet).Methods("GET")
+    myRouter.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("web/static/"))))
 	fmt.Printf("listening on tcp/%d\n", apiPort)
     runtime.InitCache(runtime.NewInMemoryCache())
     log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", apiPort), myRouter))
