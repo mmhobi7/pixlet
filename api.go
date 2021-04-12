@@ -175,7 +175,7 @@ func handleReqs() {
     myRouter.HandleFunc("/applet/{name}", deleteApplet).Methods("DELETE")
     myRouter.HandleFunc("/applet/{name}", getApplet).Methods("GET")
     myRouter.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("web/static/"))))
-	fmt.Printf("listening on tcp/%d\n", apiPort)
+    fmt.Printf("listening on tcp/%d\n", apiPort)
     runtime.InitCache(runtime.NewInMemoryCache())
     log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", apiPort), myRouter))
 }
