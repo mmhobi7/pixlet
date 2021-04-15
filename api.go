@@ -170,7 +170,7 @@ func getApplet(w http.ResponseWriter, r *http.Request) {
 func handleReqs() {
     myRouter := mux.NewRouter().StrictSlash(true)
     myRouter.HandleFunc("/", homePage)
-    myRouter.HandleFunc("/list", listApplets).Methods("GET")
+    myRouter.HandleFunc("/applets", listApplets).Methods("GET")
     myRouter.HandleFunc("/applet", addApplet).Methods("POST")
     myRouter.HandleFunc("/applet/{name}", deleteApplet).Methods("DELETE")
     myRouter.HandleFunc("/applet/{name}", getApplet).Methods("GET")
