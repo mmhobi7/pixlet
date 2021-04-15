@@ -3,7 +3,7 @@ $(document).ready(function () {
 });
 
 function listApplets(){
-    $.getJSON("/list",
+    $.getJSON("/applets",
     {},
     function(data, status) {
         $.each(data, function( index, value ) {
