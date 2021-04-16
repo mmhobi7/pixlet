@@ -2,3 +2,4 @@
 pixlet
 *.star
 *.bak
+.DS_Store
