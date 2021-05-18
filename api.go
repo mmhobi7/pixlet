@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -135,10 +134,11 @@ func getApplet(w http.ResponseWriter, r *http.Request) {
     config := map[string]string{}
     for k, vals := range r.URL.Query() {
         config[k] = vals[0]
+        fmt.Printf("%s -> %s\n", k, vals[0])
     }
     if file != "" {
         file = file + ".star"
-        aplt, err := ioutil.ReadFile(fmt.Sprintf("%s/%s", APPLETS_PATH,file))
+        aplt, err := os.ReadFile(fmt.Sprintf("%s/%s", APPLETS_PATH,file))
         if err == nil {
             w.Header().Set("Content-Type", "text/plain")
             applet := runtime.Applet{}
