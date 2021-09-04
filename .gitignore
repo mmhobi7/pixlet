@@ -1,6 +1,16 @@
+# MacOS
+.DS_Store
+
+# Rendered Apps
+examples/*.webp
+examples/*.gif
+
+# Pixlet Binary
+build/out/pixlet
+
+# Custom
 *~
 pixlet
 *.star
 *.bak
-.DS_Store
 images/
