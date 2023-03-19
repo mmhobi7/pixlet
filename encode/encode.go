@@ -3,15 +3,18 @@ package encode
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/gif"
 	"time"
 
-	"github.com/harukasan/go-libwebp/webp"
+	"github.com/ericpauley/go-quantize/quantize"
 	"github.com/pkg/errors"
+	"github.com/tidbyt/go-libwebp/webp"
+	"github.com/vmihailenco/msgpack/v5"
+
 	"tidbyt.dev/pixlet/render"
 )
 
@@ -19,25 +22,33 @@ const (
 	WebPKMin                 = 0
 	WebPKMax                 = 0
 	DefaultScreenDelayMillis = 50
+	DefaultMaxAgeSeconds     = 0 // 0 => no max age, cache forever!
 )
 
 type Screens struct {
-	roots  []render.Root
-	images []image.Image
-	delay  int32
+	roots             []render.Root
+	images            []image.Image
+	delay             int32
+	MaxAge            int32
+	ShowFullAnimation bool
 }
 
 type ImageFilter func(image.Image) (image.Image, error)
 
 func ScreensFromRoots(roots []render.Root) *Screens {
 	screens := Screens{
-		roots: roots,
-		delay: DefaultScreenDelayMillis,
+		roots:  roots,
+		delay:  DefaultScreenDelayMillis,
+		MaxAge: DefaultMaxAgeSeconds,
 	}
 	if len(roots) > 0 {
 		if roots[0].Delay > 0 {
 			screens.delay = roots[0].Delay
 		}
+		if roots[0].MaxAge > 0 {
+			screens.MaxAge = roots[0].MaxAge
+		}
+		screens.ShowFullAnimation = roots[0].ShowFullAnimation
 	}
 	return &screens
 }
@@ -46,6 +57,7 @@ func ScreensFromImages(images ...image.Image) *Screens {
 	screens := Screens{
 		images: images,
 		delay:  DefaultScreenDelayMillis,
+		MaxAge: DefaultMaxAgeSeconds,
 	}
 	return &screens
 }
@@ -58,9 +70,11 @@ func (s *Screens) Hash() ([]byte, error) {
 		Roots  []render.Root
 		Images []image.Image
 		Delay  int32
+		MaxAge int32
 	}{
-		Roots: s.roots,
-		Delay: s.delay,
+		Roots:  s.roots,
+		Delay:  s.delay,
+		MaxAge: s.MaxAge,
 	}
 
 	if len(s.roots) == 0 {
@@ -69,7 +83,7 @@ func (s *Screens) Hash() ([]byte, error) {
 		hashable.Images = s.images
 	}
 
-	j, err := json.Marshal(hashable)
+	j, err := msgpack.Marshal(hashable)
 	if err != nil {
 		return nil, errors.Wrap(err, "marshaling render tree to JSON")
 	}
@@ -80,7 +94,7 @@ func (s *Screens) Hash() ([]byte, error) {
 
 // Renders a screen to WebP. Optionally pass filters for
 // postprocessing each individual frame.
-func (s *Screens) EncodeWebP(filters ...ImageFilter) ([]byte, error) {
+func (s *Screens) EncodeWebP(maxDuration int, filters ...ImageFilter) ([]byte, error) {
 	images, err := s.render(filters...)
 	if err != nil {
 		return nil, err
@@ -102,10 +116,23 @@ func (s *Screens) EncodeWebP(filters ...ImageFilter) ([]byte, error) {
 	}
 	defer anim.Close()
 
-	frameDuration := time.Duration(s.delay) * time.Millisecond
+	remainingDuration := time.Duration(maxDuration) * time.Millisecond
 	for _, im := range images {
+		frameDuration := time.Duration(s.delay) * time.Millisecond
+
+		if maxDuration > 0 {
+			if frameDuration > remainingDuration {
+				frameDuration = remainingDuration
+			}
+			remainingDuration -= frameDuration
+		}
+
 		if err := anim.AddFrame(im, frameDuration); err != nil {
 			return nil, errors.Wrap(err, "adding frame")
+		}
+
+		if maxDuration > 0 && remainingDuration <= 0 {
+			break
 		}
 	}
 
@@ -119,7 +146,7 @@ func (s *Screens) EncodeWebP(filters ...ImageFilter) ([]byte, error) {
 
 // Renders a screen to GIF. Optionally pass filters for postprocessing
 // each individual frame.
-func (s *Screens) EncodeGIF(filters ...ImageFilter) ([]byte, error) {
+func (s *Screens) EncodeGIF(maxDuration int, filters ...ImageFilter) ([]byte, error) {
 	images, err := s.render(filters...)
 	if err != nil {
 		return nil, err
@@ -131,42 +158,31 @@ func (s *Screens) EncodeGIF(filters ...ImageFilter) ([]byte, error) {
 
 	g := &gif.GIF{}
 
+	remainingDuration := maxDuration
 	for imIdx, im := range images {
 		imRGBA, ok := im.(*image.RGBA)
 		if !ok {
 			return nil, fmt.Errorf("image %d is %T, require RGBA", imIdx, im)
 		}
 
-		palette := color.Palette{}
-		idxByColor := map[color.RGBA]int{}
-
-		// Create the palette
-		for x := 0; x < imRGBA.Bounds().Dx(); x++ {
-			for y := 0; y < imRGBA.Bounds().Dy(); y++ {
-				c := imRGBA.RGBAAt(x, y)
-				if _, found := idxByColor[c]; !found {
-					idxByColor[c] = len(palette)
-					palette = append(palette, c)
-				}
-			}
-		}
-		if len(palette) > 256 {
-			return nil, fmt.Errorf(
-				"require <=256 colors, found %d in image %d",
-				len(palette), imIdx,
-			)
-		}
-
-		// Construct the paletted image
+		palette := quantize.MedianCutQuantizer{}.Quantize(make([]color.Color, 0, 256), im)
 		imPaletted := image.NewPaletted(imRGBA.Bounds(), palette)
-		for x := 0; x < imRGBA.Bounds().Dx(); x++ {
-			for y := 0; y < imRGBA.Bounds().Dy(); y++ {
-				imPaletted.SetColorIndex(x, y, uint8(idxByColor[imRGBA.RGBAAt(x, y)]))
+		draw.Draw(imPaletted, imRGBA.Bounds(), imRGBA, image.Point{0, 0}, draw.Src)
+
+		frameDelay := int(s.delay)
+		if maxDuration > 0 {
+			if frameDelay > remainingDuration {
+				frameDelay = remainingDuration
 			}
+			remainingDuration -= frameDelay
 		}
 
 		g.Image = append(g.Image, imPaletted)
-		g.Delay = append(g.Delay, int(s.delay/10)) // in 100ths of a second
+		g.Delay = append(g.Delay, frameDelay/10) // in 100ths of a second
+
+		if maxDuration > 0 && remainingDuration <= 0 {
+			break
+		}
 	}
 
 	buf := &bytes.Buffer{}
