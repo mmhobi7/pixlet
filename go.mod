@@ -44,11 +44,6 @@ require (
 )
 
 require (
-	github.com/gorilla/mux v1.8.0 // indirect
-	github.com/antchfx/xmlquery v1.3.6
-	github.com/antchfx/xpath v1.2.0 // indirect
-	github.com/fogleman/gg v1.3.0
-	github.com/fsnotify/fsnotify v1.5.1
 	github.com/Code-Hex/go-wordwrap v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230217124315-7d5c6f04bbb8 // indirect
