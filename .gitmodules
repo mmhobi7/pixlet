@@ -1,0 +1,3 @@
+[submodule "community-applets"]
+	path = community-applets
+	url = https://github.com/tidbyt/community.git

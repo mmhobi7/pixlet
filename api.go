@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -22,7 +23,8 @@ import (
 var (
 	apiPort      int
 	applets      []string
-	APPLETS_PATH = "./applets"
+	appletsPath  []string
+	APPLETS_PATH = "."
 )
 
 func init() {
@@ -53,20 +55,36 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 
 func listApplets(w http.ResponseWriter, r *http.Request) {
 	applets = nil
-	files, err := os.ReadDir(APPLETS_PATH)
+	_, err := os.ReadDir(APPLETS_PATH)
 	if err != nil {
 		log.Println("There was an error listing files: ")
 	}
 
 	re := regexp.MustCompile("[.]star$")
-	for _, file := range files {
-		if !file.IsDir() {
-			match := re.MatchString(file.Name())
-			if match {
-				applets = append(applets, strings.Replace(file.Name(), ".star", "", 1))
+	err = filepath.Walk(APPLETS_PATH,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
 			}
-		}
+			match := re.MatchString(path)
+			if match {
+				applets = append(applets, strings.Replace(info.Name(), ".star", "", 1))
+				appletsPath = append(appletsPath, path)
+			}
+			return nil
+		})
+	if err != nil {
+		log.Println(err)
 	}
+
+	// for _, file := range files {
+	// 	if !file.IsDir() {
+	// 		match := re.MatchString(file.Name())
+	// 		if match {
+	// 			applets = append(applets, strings.Replace(file.Name(), ".star", "", 1))
+	// 		}
+	// 	}
+	// }
 	payload, err := json.Marshal(applets)
 	if err != nil {
 		log.Printf("failed to marshal json: %v\n", err)
@@ -90,7 +108,7 @@ func addApplet(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Wrong file extension. .star needed")
 		return
 	}
-	f, err := os.OpenFile(fmt.Sprintf("%s/%s", APPLETS_PATH, fileName), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	f, err := os.OpenFile(findApplet(fileName), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		log.Println("There was an error writing the file to disk: ", err)
@@ -111,7 +129,7 @@ func deleteApplet(w http.ResponseWriter, r *http.Request) {
 	file := vars["name"]
 	if file != "" {
 		file = file + ".star"
-		filePath := fmt.Sprintf("%s/%s", APPLETS_PATH, file)
+		filePath := findApplet(file)
 		if _, err := os.Stat(filePath); err == nil {
 			err = os.Remove(filePath)
 			if err != nil {
@@ -128,6 +146,32 @@ func deleteApplet(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func findApplet(appletName string) string {
+	_, err := os.ReadDir(APPLETS_PATH)
+	if err != nil {
+		log.Println("There was an error listing files: ")
+	}
+
+	re := regexp.MustCompile(appletName)
+	var a string
+	err = filepath.Walk(APPLETS_PATH,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			match := re.MatchString(path)
+			if match {
+				a = path
+				return nil
+			}
+			return nil
+		})
+	if err != nil {
+		log.Println(err)
+	}
+	return a
+}
+
 func getApplet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	file := vars["name"]
@@ -139,7 +183,10 @@ func getApplet(w http.ResponseWriter, r *http.Request) {
 	}
 	if file != "" {
 		file = file + ".star"
-		aplt, err := os.ReadFile(fmt.Sprintf("%s/%s", APPLETS_PATH, file))
+		appa := findApplet(file)
+		fmt.Print(appa)
+		fmt.Print("\n")
+		aplt, err := os.ReadFile(appa)
 		if err == nil {
 			w.Header().Set("Content-Type", "text/plain")
 			applet := runtime.Applet{}
